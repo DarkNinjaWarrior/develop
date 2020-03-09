@@ -2,26 +2,29 @@ function EventLogging {
   Param (
       [Parameter(Mandatory=$True, Position=0, ValueFromPipeline=$false)]
       [System.String]
-      $Path,
+      $LogFile,
     
       [Parameter(Mandatory=$True, Position=1, ValueFromPipeline=$false)]
       [System.String]
-      $Ops,
-        
+      $EventMsg,
+    
       [Parameter(Mandatory=$True, Position=2, ValueFromPipeline=$false)]
       [System.String]
-      $EventMsg
+      $Operation,
+        
+      [Parameter(Mandatory=$True, Position=3, ValueFromPipeline=$false)]
+      [System.String]
+      $LogLevel
   )
 
   $cTime = "["+(Get-Date).ToString('F')+"]";
-  $LogFile = $Path+"\logs\events.log";
 
   if ([System.IO.File]::Exists($LogFile)){
-     $msg = $cTime+" - "+$Ops+" - "+$EventMsg;
+     $msg = $cTime+" ["+$LogLevel+"] "+$Operation+" - "+$EventMsg;
      $msg | Out-File $LogFile -Append;
   }
   else{
-     $msg = $cTime+" - "+$Ops+" - "+$EventMsg;
+     $msg = $cTime+" ["+$LogLevel+"] "+$Operation+" - "+$EventMsg;
      $msg | Out-File $LogFile;
   }
 }
