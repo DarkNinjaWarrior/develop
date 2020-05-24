@@ -14,20 +14,27 @@ $_oct3 = 0;
 $_oct4 = 1;
 $_ipAddr = "";
 $_count = 0;
+$_quota = 10;
 
+# Default IP GeoLocation Lookup Server
+# - IPInfo.io
+# $_extUrl = "https://ipinfo.io";
+# - IPstack.com
+$_extUrl = "http://api.ipstack.com";
 
-# Default IP GeoLocation Lookup Server (IPInfo.io)
-$_extUrl = "https://ipinfo.io";
-$_quota = 0;
-
-# Default Authentication Tokens (IPInfo.io)
+# Default Authentication Tokens
 # $_authToken = "<Token_ID>";
 $_authToken = $null;
 $_authParms = "";
 
 # Authentication Parameters (IPInfo.io)
 if ($_authToken -eq $null) {$_authParms="";}
-else {$_authParms = "?token="+$_authToken;}
+else {
+    # - IPInfo.io
+    # $_authParms = "?token="+$_authToken;
+    # - IPStack.com
+    $_authParms = "?access_key="+$_authToken;
+    }
 
 # Default IP Output
 $_outPath = ".\IPInfo";
