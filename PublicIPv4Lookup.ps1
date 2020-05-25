@@ -13,7 +13,9 @@ Param(
     [Parameter(Mandatory=$false)]$TokenKey,
     [Parameter(Mandatory=$false)]$IPStart,
     [Parameter(Mandatory=$false)]$IPEnd,
-    [Parameter(Mandatory=$false)]$IPCount
+    [Parameter(Mandatory=$false)]$IPCount,
+    [Parameter(Mandatory=$false)]$ShowResult,
+    [Parameter(Mandatory=$false)]$FunDebug
 )
 
 # Global Variables
@@ -33,6 +35,9 @@ $_quota = 0;
 $_maxCount = 0;
 $_ipCount = 0;
 $_extUrl = "";
+$_showResult = $_isDebug = $false;
+if ($ShowResult -eq $true) {$_showResult = $true;}
+if ($FunDebug -eq $true) {$_isDebug = $true;}
 
 # Start and End IP Address
 if (($IPStart -eq $null) -and ($IPEnd -ne $null)) {$_ipStart = $IPEnd;}
@@ -55,7 +60,6 @@ if ($_ipEnd -ne $null) {
 
 $_ipAddrCnt = [math]::Pow(256,3)*($_eOct1-$_sOct1)+[math]::Pow(256,2)*($_eOct2-$_sOct2)+[math]::Pow(256,1)*($_eOct3-$_sOct3)+[math]::Pow(256,0)*($_eOct4-$_sOct4);
 if ($_ipAddrCnt -lt 0) {$_ipAddrCnt =1;}
-
 
 # IP GeoLocation Lookup Provider API Authentication Parameters
 $_authDest = $Provider;
@@ -125,13 +129,15 @@ Try{
 
     # Set the current IP Address for Geolocation Search;
     $_ipAddr = ""+$_oct1+"."+$_oct2+"."+$_oct3+"."+$_oct4+"";
-    #Write-Host $_ipAddr;
     
     #Lookup IP GeoLocation Information;
     $_url = $_extUrl+"/"+$_ipAddr+$_authParms;
-	#Write-Host $_url;
-    Invoke-WebRequest -Method Get -Uri $_url | ConvertFrom-Json | Select-Object | ConvertTo-Csv -NoTypeInformation | Set-Content $_outPath"\"$_ipAddr".csv";
+    $_outStr = Invoke-WebRequest -Method Get -Uri $_url 
+    $_outStr | ConvertFrom-Json | Select-Object | ConvertTo-Csv -NoTypeInformation  | Set-Content $_outPath"\"$_ipAddr".csv";
     
+    if ($_isDebug) {Write-Host "Lookup URL: " $_url;}
+    if ($_showResult -or $_isDebug){Write-Host "Lookup Result: "; Write-Host $_outStr;}
+
     #Set the Next IP Address;
     $_oct4 += 1;
     if ($_oct4 -ge 256) {$_oct4 = 0;$_oct3+=1;}
