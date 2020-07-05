@@ -5,8 +5,9 @@ Param(
 )
 
 # default values of the parameters
-$_downloadTargetList = ".\DownloadList.txt";
-$_downloadTargetPath = ".\Downloads\";
+$CurrentFilePath = (Get-Item -Path ".\").FullName;
+$_downloadTargetList = $CurrentFilePath+"\DownloadList.txt";
+$_downloadTargetPath = $CurrentFilePath+"\Downloads\";
 
 # global variable settings
 $downloadTargetList = $DownloadList;
