@@ -145,7 +145,6 @@ $resetAllDefault = (($getRunningServices -eq $false) -and ($getRunningProcesses 
 If ($resetAllDefault -eq $true) {
     $getRunningServices     = $true;
     $getRunningProcesses    = $true;
-    $getPSSessionConfig     = $true;
     $getDirectoryInfo       = $true;
     $getRegistryInfo        = $true;
 }
@@ -289,6 +288,44 @@ function gatherAttributes {
 }
 
 #
+# Function - Operations on the depended services.
+#
+function activateDependedService {
+    Param ([Parameter(Mandatory=$true,Position=0)][String[]] $serviceName) 
+    $targetService = Get-Service -Name $serviceName;
+    if ($targetService.Status -ne "Running"){
+        if ($targetService.StartType -eq "Disabled") {
+            Write-Host "`nCurrently the $($serviceName) service is disabled. We will temporarily enable and start the $($serviceName) service. Do you want to continue?";
+            Set-Service -Name $targetService.Name -StartupType Manual -Confirm; Start-Service -Name $targetService.Name; 
+        }
+        else {
+            Write-Host "Currently the $($serviceName) service is stopped. We will temporarily start the $($serviceName) service. Do you want to continue?";
+            Set-Service -Name $targetService.Name -Status Running -Confirm; 
+        }
+    }
+}
+
+function deactivateDependedService {
+    Param (
+        [Parameter(Mandatory=$true,Position=0)][String[]] $serviceName,
+        [Parameter(Mandatory=$false,Position=1)][String[]] $serviceOps
+    )
+    Stop-Service -Name $serviceName -Force;
+    if ($serviceOps -eq "Disabled") { Set-Service -Name $dependedService -StartupType Disabled; }
+}
+
+function changeDependedService {
+    Param (
+        [Parameter(Mandatory=$true,Position=0)] [String[]] $serviceName,
+        [Parameter(Mandatory=$false,Position=1)] [String[]] $serviceOps
+    )
+    if ($serviceOps -eq "Activate") { activateDependedService $serviceName; }
+    elseif ($serviceOps -eq "Disabled") { deactivateDependedService $serviceName $serviceOps; }
+    else { deactivateDependedService $serviceName; }
+}
+
+
+#
 # Function - Collect the dynamic information of the local system, such as the running processes, services and applications.
 #
 
@@ -302,7 +339,20 @@ function getSystemInformationDynamic {
 
     if ($dataType -eq "Process")       { $data = Get-Process * -ErrorAction SilentlyContinue -ErrorVariable ErrorOutput; $target = $reportRunningProcess;}
     if ($dataType -eq "Service")       { $data = Get-Service * -ErrorAction SilentlyContinue -ErrorVariable ErrorOutput; $target = $reportRunningService;}
-    if ($dataType -eq "PSSessionConf") { $data = Get-PSSessionConfiguration * -ErrorAction SilentlyContinue -ErrorVariable ErrorOutput; $target = $reportPSSessionConfig;}
+    if ($dataType -eq "PSSessionConf") { 
+        $dependedService = "WinRM";
+        $origStatus = (Get-Service -Name $dependedService).Status;
+        $origStartType = (Get-Service -Name $dependedService).StartType;
+        if ((Get-Service -Name $dependedService).Status -ne "Running"){
+            Write-Host "Running the PowerShell Session Configuration Checks (such as the PSRemoting settings) requires the service WinRM be started.";
+            changeDependedService $dependedService "Activate";
+            }
+        if ((Get-Service -Name $dependedService).Status -eq "Running"){ $data = Get-PSSessionConfiguration * -ErrorAction SilentlyContinue -ErrorVariable ErrorOutput; $target = $reportPSSessionConfig; }
+        if ($origStatus -ne "Running"){ 
+            if($origStartType -eq "Disabled") {changeDependedService $dependedService $origStartType; }
+            else { changeDependedService $dependedService; }
+        }
+    }
 
     if (($data -ne $null) -and ($target -ne $null))  {  exportData $data $target;  }
     if ($ErrorOutput.Count -gt 0)      {  outputAsJson $ErrorOutput $ErrorOutputFile;   }
