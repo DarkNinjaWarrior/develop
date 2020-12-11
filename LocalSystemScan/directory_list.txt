@@ -1,0 +1,5 @@
+C:\Users
+C:\Program Files
+C:\Program Files (x86)
+C:\ProgramData
+C:\Windows
