@@ -13,7 +13,6 @@
 # -getPSSessionConf:   Instruct the script whether the information of the powershell session configuration should be collected or not. Default value: $false
 # -getDirInfo:         Instruct the script whether the information of the files and directories should be collected or not. Default value: $false
 # -getRegInfo:         Instruct the script whether the information of the system registry should be collected or not. Default value: $false
-# -getPerfMon:         Instruct the script whether the additional performance measurement information of the data colldctions of the files and directories and/or system registry should be collected or not. Default value: $false
 # -outFormat:          Instruct the desired file format when the script save the data. Default value: JSontxt. Acceptable value:  JSon | JSonTXT | CSV | XML | HTML | FormatTXT | TXT
 # -inputLoc:           Instruct the script to load the specified location when the files of directory list and registry list to be used by the script.
 # -outputLoc:          Instruct the script to save the output files to the specified locations.
@@ -50,7 +49,6 @@ Param(
     [Parameter(Mandatory=$false,ValueFromPipeline=$false)][Boolean]  $getPSSessionConf,
     [Parameter(Mandatory=$false,ValueFromPipeline=$false)][Boolean]  $getDirInfo,
     [Parameter(Mandatory=$false,ValueFromPipeline=$false)][Boolean]  $getRegInfo,
-    [Parameter(Mandatory=$false,ValueFromPipeline=$false)][Boolean]  $getPerfMon,
     [Parameter(Mandatory=$false,ValueFromPipeline=$false)][String[]] $outFormat,
     [Parameter(Mandatory=$false,ValueFromPipeline=$false)][String[]] $inputLoc,
     [Parameter(Mandatory=$false,ValueFromPipeline=$false)][String[]] $outputLoc
@@ -64,7 +62,6 @@ $getRunningProcesses     = $false;
 $getPSSessionConfig      = $false;
 $getDirectoryInfo        = $false;
 $getRegistryInfo         = $false;
-$getPerfMonInfo          = $false;
 
 $currentLocation         = Get-Location;
 $inputLocation           = $currentLocation;
@@ -72,6 +69,7 @@ $outputLocation          = $currentLocation;
 
 $inputFileDirList        = "directory_list.txt";
 $inputFileRegList        = "registry_list.txt";
+$inputFileDirExList      = "directory_exclude.txt";
 $outputFileRTError       = "RuntimeError.log";
 
 $runtimeOutput           = ""+$currentLocation+"\"+$outputFileRTError;
@@ -109,7 +107,6 @@ if ($getRProcess -eq $true)       { $getRunningProcesses  = $getRProcess;  }
 if ($getPSSessionConf -eq $true)  { $getPSSessionConfig   = $getPSSessionConf;  }
 if ($getDirInfo  -eq $true)       { $getDirectoryInfo     = $getDirInfo;   }
 if ($getRegInfo  -eq $true)       { $getRegistryInfo      = $getRegInfo;   }
-if ($getPerfMon  -eq $true)       { $getPerfMonInfo       = $getPerfMon;   }
 
 #
 # Determine the output file format from the input parameters.
@@ -157,24 +154,28 @@ If ($resetAllDefault -eq $true) {
 #  Update the file locations of the input configuration files 
 #
 $dirRootListFile               = ""+$inputLocation+"\"+$inputFileDirList;
+$dirExcludeListFile            = ""+$inputLocation+"\"+$inputFileDirExList;
 $regRootListFile               = ""+$inputLocation+"\"+$inputFileRegList;
 
 #
 #  Update the file locations of the output error log files
 #
 $ErrorOutputFile        = ""+$outputLocation+"\Output_Error_"+$computeName+"_"+$timestamp+".log";
-$reportDirPerfMon       = ""+$outputLocation+"\Directory_PerfMon_"+$computeName+"_"+$timestamp+".log";
-$reportRegPerfMon       = ""+$outputLocation+"\Registry_Perfmon_"+$computeName+"_"+$timestamp+".log";
 
 #
 #  Verify the existence of the input configruation file for directory list.
 #  If the configuration file does NOT exist, the walkthrough and data collections of files and directories will be disabled regardless the values of the input parameters.
 #
-if (((Test-Path $dirRootListFile) -eq $false) -and ($getDirectoryInfo -eq $true)) {
-    $outString = "["+(Get-Date).ToString('yyyy/MM/dd HH:mm:ss.sss')+"] - Unable to locate the directory list file ["+$dirRootListFile+"]. Directory walkthrough and data collection are disabled." 
+if ((((Test-Path $dirRootListFile) -eq $false) -or ((Test-Path $dirExcludeListFile) -eq $false)) -and ($getDirectoryInfo -eq $true)) {
+    $outString = $null;
+    if ((Test-Path $dirRootListFile) -eq $false) { $outString += "["+(Get-Date).ToString('yyyy/MM/dd HH:mm:ss.sss')+"] - Unable to locate the directory list file ["+$dirRootListFile+"]. Directory walkthrough and data collection are disabled."  }
+    if ((Test-Path $dirExcludeListFile) -eq $false) { $outString += "["+(Get-Date).ToString('yyyy/MM/dd HH:mm:ss.sss')+"] - Unable to locate the directory exlcude list file ["+$dirExcludeListFile+"]. Directory walkthrough and data collection are disabled."  }
     $outString | Out-File -append $runtimeOutput;
-    $getDirectoryInfo = $false; $getPerfMonInfo = $false;
+    $getDirectoryInfo = $false;
 }
+
+$inputFileDirEx = "";
+if ((Test-Path $dirExcludeListFile) -eq $true) { $inputFileDirEx = ""+(Get-Content $inputFileDirExList)+""; }
 
 #
 #  Verify the existence of the input configruation file for registry list.
@@ -274,9 +275,8 @@ function gatherAttributes {
         [Parameter(Mandatory=$true,Position=1)] [String[]] $dataType
     )
     $ErrorOutput = $null;
-
     $iProp = Get-ItemProperty $dataObject.PsPath  -ErrorAction SilentlyContinue -ErrorVariable +ErrorOutput | Select-Object -Property * -ExcludeProperty PSDrive,PSProvider,AccessRightType,AccessRuleType,AuditRightType,AuditRuleType,Sddl;
-    $iAcl = Get-Acl $dataObject.PsPath -ErrorAction SilentlyContinue -ErrorVariable +ErrorOutput | Select-Object -Property * -ExcludeProperty PSDrive,PSProvider,AccessRightType,AccessRuleType,AuditRightType,AuditRuleType,Sddl
+    $iAcl = Get-Acl $dataObject.PsPath -ErrorAction SilentlyContinue -ErrorVariable +ErrorOutput | Select-Object -Property * -ExcludeProperty PSDrive,PSProvider,AccessRightType,AccessRuleType,AuditRightType,AuditRuleType,Sddl;
     if ($iProp -ne $null) {  
         if ($dataType -eq "directory") {  exportData $iProp $reportDirProperty;  }
         if ($dataType -eq "registry")  {  exportData $iProp $reportRegProperty;  }
@@ -326,45 +326,24 @@ function getSystemInformationStatic {
     if ($dataType -eq "registry")  {  $rootList = Get-Content $regRootListFile;  }
 
     foreach ($list in $rootList){
-        if ($dataType -eq "directory") {  $currentItem = $list; }
+        if ($dataType -eq "directory") {  if ($list -notmatch $inputFileDirEx) {$currentItem = $list; } }
         if ($dataType -eq "registry")  {  $currentItem = "Registry::"+$list; }
 
+        if ($currentItem -ne $null) {
         if ((Test-Path $currentItem) -eq $true) {
-            $iCount1 = $iCount2 = 0;
-            $startTime = Get-Date -UFormat %s;
-
             $rootItem = Get-Item -Path $currentItem -ErrorAction SilentlyContinue -ErrorVariable ErrorOutput -Force;
             
             if ($ErrorOutput.Count -gt 0) { outputAsJson $ErrorOutput $ErrorOutputFile;  $ErrorOutput = $null;  }
-            else { gatherAttributes $rootItem $dataType;  }
-
-            if ($dataType -eq "directory") {  $iCount1 += 1; $iCount2 += ($rootItem.Length); }
-            if ($dataType -eq "registry") {  $iCount1 += ($rootItem.SubKeyCount+1); $iCount2 += ($rootItem.ValueCount+1); }
+            else { gatherAttributes $rootItem $dataType;  }  
 
             if ($isRecurse -eq $true) {
-                if ($dataType -eq "directory") { $childItems = Get-ChildItem -Path $currentItem -Recurse -ErrorAction SilentlyContinue -ErrorVariable ErrorOutput -Attributes !ReparsePoint; }
+                if ($dataType -eq "directory") { $childItems = Get-ChildItem -Path $currentItem -Recurse -ErrorAction SilentlyContinue -ErrorVariable ErrorOutput -Attributes !ReparsePoint | where {($_.LinkType -eq $null) -and ($_.DirectoryName -notlike "*\temp*")}; }
                 if ($dataType -eq "registry")  { $childItems = Get-ChildItem -Path $currentItem -Recurse -ErrorAction SilentlyContinue -ErrorVariable ErrorOutput -Force; }
                 if ($ErrorOutput.Count -gt 0) { outputAsJson $ErrorOutput $ErrorOutputFile;  $ErrorOutput = $null;  }
-                if ($childItems -ne $null) { 
-                    foreach ($_ in $childItems) { gatherAttributes $_ $dataType; 
-                        if ($dataType -eq "directory") { $iCount1 += 1; $iCount2 += $_.length; }
-                        if ($dataType -eq "registry") {  $iCount1 += ($_.SubKeyCount+1); $iCount2 += ($_.ValueCount+1); }
-                    } 
+                if ($childItems -ne $null) { foreach ($_ in $childItems) { 
+                    if($dataType -eq "directory") { if($_.FullName -notmatch $inputFileDirEx) { gatherAttributes $_ $dataType; } }
+                    if($dataType -eq "registry") { gatherAttributes $_ $dataType; } } }
                 }
-            }
-
-            $endTime = Get-Date -UFormat %s;
-            $deltaTime = [Math]::Round(([double]::Parse($endTime)) - ([double]::Parse($startTime)), 2);
-            
-            $outData = $null;
-
-            if ($getPerfMonInfo -eq $true){            
-                if ($dataType -eq "directory") { 
-                    $outData = Measure-Command { $rootItem | Get-ChildItem  -Recurse -ErrorAction SilentlyContinue -ErrorVariable ErrorOutput -Attributes !ReparsePoint } | Select-Object @{Name="Root Path";Expression={$rootItem.FullName}},@{Name="Total Counts";Expression={$iCount1}},@{Name="Total Size (MB)";Expression={[Math]::Round($iCount2/1024/1024,2)}},@{Name="Total Time (seconds)";Expression={$_.TotalSeconds}},@{Name="Speed (items/second)";Expression={[Math]::Round(($iCount1)/($deltaTime),2)}},@{Name="Throughtput (MB/seconds)";Expression={[Math]::Round(($iCount2)/1024/1024/($deltaTime),2)}}; 
-                    outputAsJson $outData $reportDirPerfMon;  }
-                if ($dataType -eq "registry")  {
-                    $outData = Measure-Command { $rootItem | Get-ChildItem -Recurse -ErrorAction SilentlyContinue -ErrorVariable ErrorOutput -Force } | Select-Object @{Name="Root Path";Expression={$rootItem.Name}},@{Name="Total Keys";Expression={$iCount1}},@{Name="Total Values";Expression={$iCount2}},@{Name="Total Time (seconds)";Expression={$deltaTime}},@{Name="Speed (keys/second)";Expression={[Math]::Round($iCount1/$deltaTime,2)}},@{Name="Speed (values/second)";Expression={[Math]::Round($iCount2/$deltaTime,2)}};
-                    outputAsJson $outData $reportRegPerfMon;  }
             }
         }
     }
