@@ -136,7 +136,7 @@ If (($getRunningServices -eq $false) -and ($getRunningProcesses -eq $false) -and
 #
 #  Update the file locations of the input configuration files 
 #
-$dirRootListFile               = ""+$inputLocation+"\directroy_list.txt";
+$dirRootListFile               = ""+$inputLocation+"\directory_list.txt";
 $regRootListFile               = ""+$inputLocation+"\registry_list.txt";
 
 #
@@ -213,6 +213,20 @@ function getRunningProcesses {
 function getDirectoryInformation {
    $dirRootList = Get-Content $dirRootListFile;
    foreach ($dirList in $dirRootList){
+       $rootItem = Get-Item -Path $dirList -ErrorAction SilentlyContinue -ErrorVariable ErrorOutput;
+       if ($ErrorOutput.Count -gt 0) { $ErrorOutput | Select-Object -Property * | ConvertTo-Json | Out-File -append $ErrorOutputFile;  $ErrorOutput = $null;  }
+       else {
+            $cProp = Get-ItemProperty $rootItem.PsPath  -ErrorAction SilentlyContinue -ErrorVariable +ErrorOutput | Select-Object -Property * -ExcludeProperty PSDrive,PSProvider,AccessRightType,AccessRuleType,AuditRightType,AuditRuleType,Sddl;
+            $cAcl = Get-Acl $rootItem.PsPath -ErrorAction SilentlyContinue -ErrorVariable +ErrorOutput | Select-Object -Property * -ExcludeProperty PSDrive,PSProvider,AccessRightType,AccessRuleType,AuditRightType,AuditRuleType,Sddl
+            if (($outputFormat -eq "json") -or ($outputFormat -eq "jsontxt")){ $cProp | ConvertTo-Json | Out-File -append $reportDirProperty; $cAcl | ConvertTo-Json | Out-File -append $reportDirPermission }
+            if ($outputFormat -eq "csv")       {  $cProp | ConvertTo-Csv | Out-File -append $reportDirProperty; $cAcl | ConvertTo-Csv | Out-File -append $reportDirPermission }
+            if ($outputFormat -eq "xml")       {  $cProp | ConvertTo-Xml | Export-Clixml -append $reportDirProperty; $cAcl | ConvertTo-Xml | Export-Clixml -append $reportDirPermission }
+            if ($outputFormat -eq "html")      {  $cProp | ConvertTo-Html | Out-File -append $reportDirProperty; $cAcl | ConvertTo-Html | Out-File -append $reportDirPermission }
+            if ($outputFormat -eq "formattxt") {  $cProp | ConvertTo-Json | ConvertFrom-Json | Out-File -append $reportDirProperty; $cAcl | ConvertTo-Json | ConvertFrom-Json | Out-File -append $reportDirPermission }
+            if ($outputFormat -eq "txt")       {  $cProp | Format-Table -AutoSize -Wrap | Out-File -append $reportDirProperty; $cAcl | Format-Table -AutoSize -Wrap | Out-File -append $reportDirPermission }
+            if ($ErrorOutput.Count -gt 0)      {  $ErrorOutput | Select-Object -Property * | ConvertTo-Json | Out-File -append $ErrorOutputFile; $ErrorOutput = $null;  }      
+       }
+
        $actionItem = Get-ChildItem -Path $dirList -Recurse -ErrorAction SilentlyContinue -ErrorVariable ErrorOutput;
        if ($ErrorOutput.Count -gt 0)      {  $ErrorOutput | Select-Object -Property * | ConvertTo-Json | Out-File -append $ErrorOutputFile;  $ErrorOutput = $null;  }
        foreach ($_ in $actionItem){
@@ -233,10 +247,14 @@ function getDirectoryInformation {
 # Function - Collect the information of the desired registry keys and values to be monitored on the local system.
 #
 function getRegistryInformation {
-   $regRootList = Get-Content $regRootListFile
+   $regRootList = Get-Content $regRootListFile;
    foreach ($regList in $regRootList){
-       $actionItem = Get-ChildItem -Path Registry::$regList -Recurse -ErrorAction SilentlyContinue -ErrorVariable ErrorOutput;
-       foreach ($_ in $actionItem){
+   $rootItem = Get-Item -Path Registry::$regList -ErrorAction SilentlyContinue -ErrorVariable ErrorOutput;
+   if ($ErrorOutput.Count -gt 0) { $ErrorOutput | Select-Object -Property * | ConvertTo-Json | Out-File -append $ErrorOutputFile;  $ErrorOutput = $null;  }
+
+   $actionItem = Get-ChildItem -Path Registry::$regList -Recurse -ErrorAction SilentlyContinue -ErrorVariable ErrorOutput;
+   if ($ErrorOutput.Count -gt 0) { $ErrorOutput | Select-Object -Property * | ConvertTo-Json | Out-File -append $ErrorOutputFile;  $ErrorOutput = $null;  }
+   foreach ($_ in $actionItem){
             $iProp = Get-ItemProperty $_.PsPath -ErrorAction SilentlyContinue -ErrorVariable +ErrorOutput | Select-Object -Property * -ExcludeProperty PSDrive,PSProvider,Access,AccessRightType,AccessRuleType,AuditRightType,AuditRuleType,Sddl;
             $iAcl = Get-Acl $_.PsPath -ErrorAction SilentlyContinue -ErrorVariable +ErrorOutput | Select-Object -Property * -ExcludeProperty PSDrive,PSProvider,Access,AccessRightType,AccessRuleType,AuditRightType,AuditRuleType,Sddl;
             if (($outputFormat -eq "json") -or ($outputFormat -eq "jsontxt")){ $iProp | ConvertTo-Json | Out-File -append $reportRegProperty; $iAcl | ConvertTo-Json | Out-File -append $reportRegPermission }
@@ -247,6 +265,7 @@ function getRegistryInformation {
             if ($outputFormat -eq "txt")       {  $iProp | Format-Table -AutoSize -Wrap | Out-File -append $reportRegProperty; $iAcl | Format-Table -AutoSize -Wrap | Out-File -append $reportRegPermission }
             if ($ErrorOutput.Count -gt 0)      {  $ErrorOutput | Select-Object -Property * | ConvertTo-Json | Out-File -append $ErrorOutputFile;  $ErrorOutput = $null;  }
        }
+
    }
 }
 
