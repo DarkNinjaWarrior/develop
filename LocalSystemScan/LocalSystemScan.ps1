@@ -1,5 +1,8 @@
-﻿#
+﻿#Requires -RunAsAdministrator
+
+#
 # Declarations of the parameters for the script. This allows the PowerShell script to be executed in different combinations without directly modify the script file.
+#
 #
 # The script can be executed in the following format:
 # C:\> .\LocalSystemScan.ps1 [-getRService <System.Boolean>] [-getRProcess <System.Boolean>] [-getDirInfo <System.Boolean>] [-getRegInfo <System.Boolean>] [-outFormat <System.String[]>] [-inputLoc <System.String[]>] [-outputLoc <System.String[]>]
@@ -229,6 +232,7 @@ function getDirectoryInformation {
 
        $actionItem = Get-ChildItem -Path $dirList -Recurse -ErrorAction SilentlyContinue -ErrorVariable ErrorOutput -Force;
        if ($ErrorOutput.Count -gt 0)      {  $ErrorOutput | Select-Object -Property * | ConvertTo-Json | Out-File -append $ErrorOutputFile;  $ErrorOutput = $null;  }
+
        foreach ($_ in $actionItem){
             $iProp = Get-ItemProperty $_.PsPath  -ErrorAction SilentlyContinue -ErrorVariable +ErrorOutput | Select-Object -Property * -ExcludeProperty PSDrive,PSProvider,AccessRightType,AccessRuleType,AuditRightType,AuditRuleType,Sddl;
             $iAcl = Get-Acl $_.PsPath -ErrorAction SilentlyContinue -ErrorVariable +ErrorOutput | Select-Object -Property * -ExcludeProperty PSDrive,PSProvider,AccessRightType,AccessRuleType,AuditRightType,AuditRuleType,Sddl
@@ -251,9 +255,21 @@ function getRegistryInformation {
    foreach ($regList in $regRootList){
    $rootItem = Get-Item -Path Registry::$regList -ErrorAction SilentlyContinue -ErrorVariable ErrorOutput -Force;
    if ($ErrorOutput.Count -gt 0) { $ErrorOutput | Select-Object -Property * | ConvertTo-Json | Out-File -append $ErrorOutputFile;  $ErrorOutput = $null;  }
+   else {
+            $cProp = Get-ItemProperty $rootItem.PsPath  -ErrorAction SilentlyContinue -ErrorVariable +ErrorOutput | Select-Object -Property * -ExcludeProperty PSDrive,PSProvider,AccessRightType,AccessRuleType,AuditRightType,AuditRuleType,Sddl;
+            $cAcl = Get-Acl $rootItem.PsPath -ErrorAction SilentlyContinue -ErrorVariable +ErrorOutput | Select-Object -Property * -ExcludeProperty PSDrive,PSProvider,AccessRightType,AccessRuleType,AuditRightType,AuditRuleType,Sddl
+            if (($outputFormat -eq "json") -or ($outputFormat -eq "jsontxt")){ $cProp | ConvertTo-Json | Out-File -append $reportRegProperty; $cAcl | ConvertTo-Json | Out-File -append $reportRegPermission }
+            if ($outputFormat -eq "csv")       {  $cProp | ConvertTo-Csv | Out-File -append $reportRegProperty; $cAcl | ConvertTo-Csv | Out-File -append $reportRegPermission }
+            if ($outputFormat -eq "xml")       {  $cProp | ConvertTo-Xml | Export-Clixml -append $reportRegProperty; $cAcl | ConvertTo-Xml | Export-Clixml -append $reportRegPermission }
+            if ($outputFormat -eq "html")      {  $cProp | ConvertTo-Html | Out-File -append $reportRegProperty; $cAcl | ConvertTo-Html | Out-File -append $reportRegPermission }
+            if ($outputFormat -eq "formattxt") {  $cProp | ConvertTo-Json | ConvertFrom-Json | Out-File -append $reportRegProperty; $cAcl | ConvertTo-Json | ConvertFrom-Json | Out-File -append $reportRegPermission }
+            if ($outputFormat -eq "txt")       {  $cProp | Format-Table -AutoSize -Wrap | Out-File -append $reportRegProperty; $cAcl | Format-Table -AutoSize -Wrap | Out-File -append $reportRegPermission }
+            if ($ErrorOutput.Count -gt 0)      {  $ErrorOutput | Select-Object -Property * | ConvertTo-Json | Out-File -append $ErrorOutputFile; $ErrorOutput = $null;  }      
+   }
 
    $actionItem = Get-ChildItem -Path Registry::$regList -Recurse -ErrorAction SilentlyContinue -ErrorVariable ErrorOutput -Force;
    if ($ErrorOutput.Count -gt 0) { $ErrorOutput | Select-Object -Property * | ConvertTo-Json | Out-File -append $ErrorOutputFile;  $ErrorOutput = $null;  }
+
    foreach ($_ in $actionItem){
             $iProp = Get-ItemProperty $_.PsPath -ErrorAction SilentlyContinue -ErrorVariable +ErrorOutput | Select-Object -Property * -ExcludeProperty PSDrive,PSProvider,Access,AccessRightType,AccessRuleType,AuditRightType,AuditRuleType,Sddl;
             $iAcl = Get-Acl $_.PsPath -ErrorAction SilentlyContinue -ErrorVariable +ErrorOutput | Select-Object -Property * -ExcludeProperty PSDrive,PSProvider,Access,AccessRightType,AccessRuleType,AuditRightType,AuditRuleType,Sddl;
