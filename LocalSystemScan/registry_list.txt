@@ -1,3 +1,5 @@
-HKEY_CURRENT_USER
-HKEY_LOCAL_MACHINE\SYSTEM
-HKEY_LOCAL_MACHINE\HARDWARE
+HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Control\Session Manager
+HKEY_CURRENT_USER\SOFTWARE\Classes\Local Settings\Software\Microsoft\Windows\Shell
+HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows\CurrentVersion
+HKEY_LOCAL_MACHINE\SOFTWARE\Wow6432Node\Microsoft\Windows\CurrentVersion
+HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows NT\CurrentVersion

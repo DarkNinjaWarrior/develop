@@ -1,4 +1,45 @@
-﻿Param(
+﻿#
+# Declarations of the parameters for the script. This allows the PowerShell script to be executed in different combinations without directly modify the script file.
+#
+# The script can be executed in the following format:
+# C:\> .\LocalSystemScan.ps1 [-getRService <System.Boolean>] [-getRProcess <System.Boolean>] [-getDirInfo <System.Boolean>] [-getRegInfo <System.Boolean>] [-outFormat <System.String[]>] [-inputLoc <System.String[]>] [-outputLoc <System.String[]>]
+#    
+# Optional Parameters:
+# -getRService:  Instruct the script whether the information of the running services should be collected or not. Default value: $false
+# -getRProcess:  Instruct the script whether the information of the running processs should be collected or not. Default value: $false
+# -getDirInfo:   Instruct the script whether the information of the files and directories should be collected or not. Default value: $false
+# -getRegInfo:   Instruct the script whether the information of the system registry should be collected or not. Default value: $false
+# -outFormat:    Instruct the desired file format when the script save the data.
+# -inputLoc:     Instruct the script to load the specified location when the files of directory list and registry list to be used by the script.
+# -outputLoc:    Instruct the script to save the output files to the specified locations.
+#
+# Sample Usages:
+# - To only collect the data of the running services
+#   C:\> .\LocalSystemScan.ps1 -getRService $true
+#
+# - To only collect the data of the running processes
+#   C:\> .\LocalSystemScan.ps1 -getRProcess $true
+#
+# - To only collect the data of the running processes
+#   C:\> .\LocalSystemScan.ps1 -getDirInfo $true
+#
+# - To only collect the data of the running processes
+#   C:\> .\LocalSystemScan.ps1 -getRegInfo $true
+#
+# - To only collect the data of the running services and save the output files to different locations
+#   C:\> .\LocalSystemScan.ps1 -getRService $true -inputLoc <input_file_path>
+#
+# - To only collect the data of the running processes and save the output files to different locations
+#   C:\> .\LocalSystemScan.ps1 -getRProcess $true -inputLoc <input_file_path>
+#
+# - To only collect the data of the running processes and load the monitoring list from different locations
+#   C:\> .\LocalSystemScan.ps1 -getDirInfo $true -outputLoc <output_file_path>
+#
+# - To only collect the data of the running processes and load the monitoring list from different locations
+#   C:\> .\LocalSystemScan.ps1 -getRegInfo $true -outputLoc <output_file_path>
+#
+
+Param(
     [Parameter(Mandatory=$false,ValueFromPipeline=$false)][Boolean]  $getRService,
     [Parameter(Mandatory=$false,ValueFromPipeline=$false)][Boolean]  $getRProcess,
     [Parameter(Mandatory=$false,ValueFromPipeline=$false)][Boolean]  $getDirInfo,
@@ -8,39 +49,86 @@
     [Parameter(Mandatory=$false,ValueFromPipeline=$false)][String[]] $outputLoc
 )
 
+#
+#  Global Variable Section. DO NOT MODIFE.
+#
 $getRunningServices      = $false;
 $getRunningProcesses     = $false;
 $getDirectoryInfo        = $false;
-$getRegistryInfo         = $false;
-$outputFormat            = "JSonTXT";
+$getRegistryInfo         = $true;
 
 $currentLocation         = Get-Location;
 $inputLocation           = $currentLocation;
 $outputLocation          = $currentLocation;
-$computeName             = $env:COMPUTERNAME;
-$timestamp               = [int][double]::Parse((Get-Date -UFormat %s));
+
 $runtimeOutput           = ""+$currentLocation+"\RuntimeError.log";
 
+$ErrorOutput             = $null;
+
+#
+#  Default output format.
+#  Acceptable value:  JSon | JSonTXT | CSV | XML | HTML | FormatTXT | TXT
+#  - JSon:            Output in JSon structure with the file extension .json
+#  - JSonTXT:         Output in JSon structure with the file extension .txt
+#  - CSV:             Output in CSV format with the file extension .csv
+#  - XML:             Output in XML format with the file extension .xml
+#  - HTML:            Output in HTML format with the file extension .html
+#  - FormatTXT:       Output in TEXT format converted from JSon output with the file extension .txt
+#  - TXT:             Output in TEXT RAW format with the file extension .txt
+#
+$outputFormat            = "JSonTXT";
+
+#
+#  Functional Variables to create the unique output files each time when the script is executed. 
+#
+$computeName             = $env:COMPUTERNAME;
+$timestamp               = [int][double]::Parse((Get-Date -UFormat %s));
+
+#
+# Validate the input parameters and pass the values to the variables
+#
+
+#
+# Determine the required data to be collected from the input parameters.
+#
 if (($getRService -eq $true))  { $getRunningServices   = $getRService;  } 
 if (($getRProcess -eq $true))  { $getRunningProcesses  = $getRProcess;  }
 if (($getDirInfo  -eq $true))  { $getDirectoryInfo     = $getDirInfo;   }
 if (($getRegInfo  -eq $true))  { $getRegistryInfo      = $getRegInfo;   }
 
+#
+# Determine the output file format from the input parameters.
+#
 If ($outFormat -ne $null)      {
     if (($outFormat -eq "JsonTXT") -or ($outFormat -eq "Json") -or ($outFormat -eq "XML") -or ($outFormat -eq "TXT") -or ($outFormat -eq "HTML") -or ($outFormat -eq "CSV") -or ($outFormat -eq "FormatTXT")) {$outputFormat = $outFormat;}
-    else { "Invalid output format. The output format can only be CSV, Json, JsonTXT, XML, HTML, FormatTXT, TXT. Use the default output formation JsonTXT instead." | Out-File -Append $runtimeOutput    }
+    else { 
+        $outString = "["+(Get-Date).ToString('yyyy/MM/dd HH:mm:ss')+"] - Invalid output format. The output format can only be CSV, Json, JsonTXT, XML, HTML, FormatTXT, TXT. Use the default output formation JsonTXT instead." 
+        $outString | Out-File -Append $runtimeOutput;    }
 }
 
+#
+# Determine the file location of the input configuration files from the input parameters.
+#
 IF ($inputLoc -ne $null)       {
     if (((Test-Path $inputLoc) -eq $true)) {$inputLocation = $inputLoc;}
-    else { "Invalid input location ["+$inputLoc+"]. Use the default input location ["+$inputLocation+"] instead." | Out-File -Append $runtimeOutput;    }
+    else { 
+        $outString = "["+(Get-Date).ToString('yyyy/MM/dd HH:mm:ss')+"] - Invalid input location ["+$inputLoc+"]. Use the default input location ["+$inputLocation+"] instead." 
+        $outString | Out-File -Append $runtimeOutput;    }
 }
 
+#
+# Determine the output file location from the input parameters.
+#
 IF ($outputLoc -ne $null)      {
     if (((Test-Path $outputLoc) -eq $true)) {$outputLocation = $outputLoc;}
-    else { "Invalid output location ["+$outputLoc+"]. Use the default out location ["+$outputLocation+"] instead." | Out-File -Append $runtimeOutput;    }
+    else { 
+        $outString = "["+(Get-Date).ToString('yyyy/MM/dd HH:mm:ss')+"] - Invalid output location ["+$outputLoc+"]. Use the default out location ["+$outputLocation+"] instead." 
+        $outString | Out-File -Append $runtimeOutput;    }
 }
 
+#
+# Error control: Enable ALL the options as default when none of them was enalbed through the input vairable.
+#
 If (($getRunningServices -eq $false) -and ($getRunningProcesses -eq $false) -and ($getDirectoryInfo -eq $false) -and ($getRegistryInfo -eq $false)) {
     $getRunningServices     = $true;
     $getRunningProcesses    = $true;
@@ -48,23 +136,42 @@ If (($getRunningServices -eq $false) -and ($getRunningProcesses -eq $false) -and
     $getRegistryInfo        = $true;
 }
 
-$dirRootListFile            = ""+$inputLocation+"\directory_list.txt";
-$regRootListFile            = ""+$inputLocation+"\registry_list.txt";
+#
+#  Update the file locations of the input configuration files 
+#
+$dirRootListFile               = ""+$inputLocation+"\directroy_list.txt";
+$regRootListFile               = ""+$inputLocation+"\registry_list.txt";
 
-$ErrorOutput                   = $null;
+#
+#  Update the file locations of the output error log files
+#
 $ErrorOutputFile               = ""+$outputLocation+"\Output_Error_"+$computeName+"_"+$timestamp+".log";
 
-if ((Test-Path $dirRootListFile) -eq $false) {
-    "Unable to locate the directory list file ["+$dirRootListFile+"]. Directory walkthrough and data collection are disabled." | Out-File -append $runtimeOutput;
+#
+#  Verify the existence of the input configruation file for directory list.
+#  If the configuration file does NOT exist, the walkthrough and data collections of files and directories will be disabled regardless the values of the input parameters.
+#
+if (((Test-Path $dirRootListFile) -eq $false) -and ($getDirectoryInfo -eq $true)) {
+    $outString = "["+(Get-Date).ToString('yyyy/MM/dd HH:mm:ss.sss')+"] - Unable to locate the directory list file ["+$dirRootListFile+"]. Directory walkthrough and data collection are disabled." 
+    $outString | Out-File -append $runtimeOutput;
     $getDirectoryInfo = $false;
 }
 
-if ((Test-Path $regRootListFile) -eq $false) {
-    "Unable to locate the registry list ["+$regRootListFile+"]. Registry walkthrough and data collection are disabled." | Out-File -append $runtimeOutput;
+#
+#  Verify the existence of the input configruation file for registry list.
+#  If the configuration file does NOT exist, the walkthrough and data collections of registry keys and values will be disabled regardless the values of the input parameters.
+#
+if (((Test-Path $regRootListFile) -eq $false) -and ($getRegistryInfo -eq $true)) {
+    $outString = "["+(Get-Date).ToString('yyyy/MM/dd HH:mm:ss.sss')+"] - Unable to locate the registry list ["+$regRootListFile+"]. Registry walkthrough and data collection are disabled." 
+    $outString | Out-File -append $runtimeOutput;
     $getRegistryInfo = $false;
 }
 
+#
+# Section of the output file formats.
+#
 $outputFileFormat = ".txt";
+
 if ($outputFormat -eq "xml")  { $outputFileFormat = ".xml";  }
 if ($outputFormat -eq "html") { $outputFileFormat = ".html"; }
 if ($outputFormat -eq "csv")  { $outputFileFormat = ".csv";  }
@@ -77,7 +184,9 @@ $reportDirPermission    = ""+$outputLocation+"\Directory_Permissions_"+$computeN
 $reportRegProperty      = ""+$outputLocation+"\Registry_Properties_"+$computeName+"_"+$timestamp+$outputFileFormat+"";
 $reportRegPermission    = ""+$outputLocation+"\Registry_Permissions_"+$computeName+"_"+$timestamp+$outputFileFormat+"";
 
-
+#
+# Function - Collect the information of the running services for the local system.
+#
 function getRuningServices {
     if (($outputFormat -eq "json") -or ($outputFormat -eq "jsontxt")) {  Get-Service * -ErrorAction SilentlyContinue -ErrorVariable ErrorOutput | ConvertTo-Json | Out-File $reportRunningService    }
     if ($outputFormat -eq "csv")       {  Get-Service * -ErrorAction SilentlyContinue -ErrorVariable ErrorOutput | Select-Object -Property * | ConvertTo-Csv | Out-File $reportRunningService     }
@@ -88,6 +197,9 @@ function getRuningServices {
     if ($ErrorOutput.Count -gt 0)      {  $ErrorOutput | Select-Object -Property * | ConvertTo-Json | Out-File $ErrorOutputFile;   }
 }
 
+#
+# Function - Collect the information of the running processes for the local system.
+#
 function getRunningProcesses {
     if (($outputFormat -eq "json") -or ($outputFormat -eq "jsontxt")) {  Get-Process * -ErrorAction SilentlyContinue -ErrorVariable ErrorOutput | ConvertTo-Json | Out-File $reportRunningProcess    }
     if ($outputFormat -eq "csv")       {  Get-Process * -ErrorAction SilentlyContinue -ErrorVariable ErrorOutput | Select-Object -Property * | ConvertTo-Csv | Out-File $reportRunningProcess    }
@@ -98,6 +210,9 @@ function getRunningProcesses {
     if ($ErrorOutput.Count -gt 0)      {  $ErrorOutput | Select-Object -Property * | ConvertTo-Json | Out-File $ErrorOutputFile;  }
 }
 
+#
+# Function - Collect the information of the desired files and directories to be monitored on the local system.
+#
 function getDirectoryInformation {
    $dirRootList = Get-Content $dirRootListFile;
    foreach ($dirList in $dirRootList){
@@ -117,13 +232,16 @@ function getDirectoryInformation {
    }
 }
 
+#
+# Function - Collect the information of the desired registry keys and values to be monitored on the local system.
+#
 function getRegistryInformation {
    $regRootList = Get-Content $regRootListFile
    foreach ($regList in $regRootList){
-       $actionItem = Get-ChildItem -Path Registry::$regList -Recurse -ErrorAction Continue -ErrorVariable ErrorOutput;
+       $actionItem = Get-ChildItem -Path Registry::$regList -Recurse -ErrorAction SilentlyContinue -ErrorVariable ErrorOutput;
        foreach ($_ in $actionItem){
-            $iProp = Get-ItemProperty $_.PsPath -ErrorAction Continue -ErrorVariable +ErrorOutput | Select-Object -Property * -ExcludeProperty PSDrive,PSProvider,Access,AccessRightType,AccessRuleType,AuditRightType,AuditRuleType,Sddl;
-            $iAcl = Get-Acl $_.PsPath -ErrorAction Continue -ErrorVariable +ErrorOutput | Select-Object -Property * -ExcludeProperty PSDrive,PSProvider,Access,AccessRightType,AccessRuleType,AuditRightType,AuditRuleType,Sddl;
+            $iProp = Get-ItemProperty $_.PsPath -ErrorAction SilentlyContinue -ErrorVariable +ErrorOutput | Select-Object -Property * -ExcludeProperty PSDrive,PSProvider,Access,AccessRightType,AccessRuleType,AuditRightType,AuditRuleType,Sddl;
+            $iAcl = Get-Acl $_.PsPath -ErrorAction SilentlyContinue -ErrorVariable +ErrorOutput | Select-Object -Property * -ExcludeProperty PSDrive,PSProvider,Access,AccessRightType,AccessRuleType,AuditRightType,AuditRuleType,Sddl;
             if (($outputFormat -eq "json") -or ($outputFormat -eq "jsontxt")){ $iProp | ConvertTo-Json | Out-File -append $reportRegProperty; $iAcl | ConvertTo-Json | Out-File -append $reportRegPermission }
             if ($outputFormat -eq "csv")       {  $iProp | ConvertTo-Csv | Out-File -append $reportRegProperty; $iAcl | ConvertTo-Csv | Out-File -append $reportRegPermission }
             if ($outputFormat -eq "xml")       {  $iProp | ConvertTo-Xml | Export-Clixml -append $reportRegProperty; $iAcl | ConvertTo-Xml | Export-Clixml -append $reportRegPermission }
@@ -135,6 +253,9 @@ function getRegistryInformation {
    }
 }
 
+#
+#  Main parts to call out the relevant functions
+#
 if ($getRunningServices -eq $true)    { getRuningServices;       }
 if ($getRunningProcesses -eq $true)   { getRunningProcesses;     }
 if ($getDirectoryInfo -eq $true)      { getDirectoryInformation; }
