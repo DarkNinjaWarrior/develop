@@ -9,7 +9,7 @@
 # -getRProcess:  Instruct the script whether the information of the running processs should be collected or not. Default value: $false
 # -getDirInfo:   Instruct the script whether the information of the files and directories should be collected or not. Default value: $false
 # -getRegInfo:   Instruct the script whether the information of the system registry should be collected or not. Default value: $false
-# -outFormat:    Instruct the desired file format when the script save the data.
+# -outFormat:    Instruct the desired file format when the script save the data. Default value: JSontxt. Acceptable value:  JSon | JSonTXT | CSV | XML | HTML | FormatTXT | TXT
 # -inputLoc:     Instruct the script to load the specified location when the files of directory list and registry list to be used by the script.
 # -outputLoc:    Instruct the script to save the output files to the specified locations.
 #
@@ -20,23 +20,20 @@
 # - To only collect the data of the running processes
 #   C:\> .\LocalSystemScan.ps1 -getRProcess $true
 #
-# - To only collect the data of the running processes
+# - To only collect the data on directories and files
 #   C:\> .\LocalSystemScan.ps1 -getDirInfo $true
 #
-# - To only collect the data of the running processes
+# - To only collect the data on system registry keys
 #   C:\> .\LocalSystemScan.ps1 -getRegInfo $true
 #
 # - To only collect the data of the running services and save the output files to different locations
-#   C:\> .\LocalSystemScan.ps1 -getRService $true -inputLoc <input_file_path>
+#   C:\> .\LocalSystemScan.ps1 -getRService $true -outputLoc <output_file_path>
 #
-# - To only collect the data of the running processes and save the output files to different locations
-#   C:\> .\LocalSystemScan.ps1 -getRProcess $true -inputLoc <input_file_path>
+# - To only collect the data on directories and files and load the monitoring list from different locations
+#   C:\> .\LocalSystemScan.ps1 -getDirInfo $true -inputLoc <input_file_path>
 #
-# - To only collect the data of the running processes and load the monitoring list from different locations
-#   C:\> .\LocalSystemScan.ps1 -getDirInfo $true -outputLoc <output_file_path>
-#
-# - To only collect the data of the running processes and load the monitoring list from different locations
-#   C:\> .\LocalSystemScan.ps1 -getRegInfo $true -outputLoc <output_file_path>
+# - To only collect the data on system registry keys with a monitoring list from a different location and then save the output files to a different location
+#   C:\> .\LocalSystemScan.ps1 -getRegInfo $true -inputLoc <input_file_path> -outputLoc <output_file_path>
 #
 
 Param(
@@ -50,12 +47,12 @@ Param(
 )
 
 #
-#  Global Variable Section. DO NOT MODIFE.
+#  Global Variable Section. DO NOT MODIFY.
 #
 $getRunningServices      = $false;
 $getRunningProcesses     = $false;
 $getDirectoryInfo        = $false;
-$getRegistryInfo         = $true;
+$getRegistryInfo         = $false;
 
 $currentLocation         = Get-Location;
 $inputLocation           = $currentLocation;
