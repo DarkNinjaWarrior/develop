@@ -213,7 +213,7 @@ function getRunningProcesses {
 function getDirectoryInformation {
    $dirRootList = Get-Content $dirRootListFile;
    foreach ($dirList in $dirRootList){
-       $rootItem = Get-Item -Path $dirList -ErrorAction SilentlyContinue -ErrorVariable ErrorOutput;
+       $rootItem = Get-Item -Path $dirList -ErrorAction SilentlyContinue -ErrorVariable ErrorOutput -Force;
        if ($ErrorOutput.Count -gt 0) { $ErrorOutput | Select-Object -Property * | ConvertTo-Json | Out-File -append $ErrorOutputFile;  $ErrorOutput = $null;  }
        else {
             $cProp = Get-ItemProperty $rootItem.PsPath  -ErrorAction SilentlyContinue -ErrorVariable +ErrorOutput | Select-Object -Property * -ExcludeProperty PSDrive,PSProvider,AccessRightType,AccessRuleType,AuditRightType,AuditRuleType,Sddl;
@@ -227,7 +227,7 @@ function getDirectoryInformation {
             if ($ErrorOutput.Count -gt 0)      {  $ErrorOutput | Select-Object -Property * | ConvertTo-Json | Out-File -append $ErrorOutputFile; $ErrorOutput = $null;  }      
        }
 
-       $actionItem = Get-ChildItem -Path $dirList -Recurse -ErrorAction SilentlyContinue -ErrorVariable ErrorOutput;
+       $actionItem = Get-ChildItem -Path $dirList -Recurse -ErrorAction SilentlyContinue -ErrorVariable ErrorOutput -Force;
        if ($ErrorOutput.Count -gt 0)      {  $ErrorOutput | Select-Object -Property * | ConvertTo-Json | Out-File -append $ErrorOutputFile;  $ErrorOutput = $null;  }
        foreach ($_ in $actionItem){
             $iProp = Get-ItemProperty $_.PsPath  -ErrorAction SilentlyContinue -ErrorVariable +ErrorOutput | Select-Object -Property * -ExcludeProperty PSDrive,PSProvider,AccessRightType,AccessRuleType,AuditRightType,AuditRuleType,Sddl;
@@ -249,10 +249,10 @@ function getDirectoryInformation {
 function getRegistryInformation {
    $regRootList = Get-Content $regRootListFile;
    foreach ($regList in $regRootList){
-   $rootItem = Get-Item -Path Registry::$regList -ErrorAction SilentlyContinue -ErrorVariable ErrorOutput;
+   $rootItem = Get-Item -Path Registry::$regList -ErrorAction SilentlyContinue -ErrorVariable ErrorOutput -Force;
    if ($ErrorOutput.Count -gt 0) { $ErrorOutput | Select-Object -Property * | ConvertTo-Json | Out-File -append $ErrorOutputFile;  $ErrorOutput = $null;  }
 
-   $actionItem = Get-ChildItem -Path Registry::$regList -Recurse -ErrorAction SilentlyContinue -ErrorVariable ErrorOutput;
+   $actionItem = Get-ChildItem -Path Registry::$regList -Recurse -ErrorAction SilentlyContinue -ErrorVariable ErrorOutput -Force;
    if ($ErrorOutput.Count -gt 0) { $ErrorOutput | Select-Object -Property * | ConvertTo-Json | Out-File -append $ErrorOutputFile;  $ErrorOutput = $null;  }
    foreach ($_ in $actionItem){
             $iProp = Get-ItemProperty $_.PsPath -ErrorAction SilentlyContinue -ErrorVariable +ErrorOutput | Select-Object -Property * -ExcludeProperty PSDrive,PSProvider,Access,AccessRightType,AccessRuleType,AuditRightType,AuditRuleType,Sddl;
