@@ -1,1 +1,0 @@
-.*\\AppData.*|.*\\temp.*|.*\\tmp.*|.*\\WinSxS.*|.*\\Windows\\Servicing\\LCU.*|.*\\Windows\\SoftwareDistribution\\.*|.*\\Application Data.*
