@@ -1,0 +1,1 @@
+This is use to massively update all you cloned local Git repositories, assume you are using the file structures <git_account_name>/<git_repo_name>
